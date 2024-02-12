@@ -1,9 +1,13 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import consts as c
 import util as u
+import numpy as np
 
 #data = util.load_csv()
+related_words = ["suicide", "opioids", "overdose"]   
+#related_words = ["opioids"]
 
 def save_articles_with_keywords():
     """
@@ -13,7 +17,7 @@ def save_articles_with_keywords():
     new_enr = pd.DataFrame(columns = ENR.columns)
 
     keywords = u.get_keywords() 
-    related_words = ["suicide", "opioids", "overdose"]   
+
 
     columns = list(ENR.columns)
     columns = ["Title", "Title_URL", "Summary2", "Text"]
@@ -61,13 +65,42 @@ def visualize():
     ENR = pd.read_csv(c.Extracted_file, index_col="Date", parse_dates=True)
     ENR.index = pd.to_datetime(ENR.index)
 
-    monthly_sum = ENR["overdose"].resample('3M').sum()
+    monthly_sum = ENR["Mental Health"].resample('3M').sum()
+    related_words_sums = []
+
+    for item in related_words:
+        related_words_sums.append(ENR[item].resample('3M').sum())
+
+    plt.figure(figsize=(10, 6))
+
+    bar_width = 0.9
+    x = np.arange(len(monthly_sum))
+
+    plt.bar(x + bar_width, monthly_sum, width=bar_width/2, label='Mental Health', color='skyblue')
     
-    plt.figure()
-    
-    ax = monthly_sum.plot(kind='bar', xlabel='Month', ylabel='Instances of keyword', title='Mental Health mentions in ENR articles')
-    
-    plt.xticks(rotation=45, ha='right') 
+    # Plot monthly sums of related words
+    for i in range(len(related_words_sums)):
+        data = related_words_sums[i]
+        z = (x + bar_width) - (i+1)/2*bar_width
+
+        plt.bar(z, data, width = bar_width/2, label = related_words[i])
+    """
+    # Set x-axis major locator to yearly
+    ax.xaxis.set_major_locator(mdates.MonthLocator())
+
+    # Set x-axis major formatter to display only year
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+    """
+    plt.xlabel("Month")
+    plt.ylabel("Instances of articles containing keyword")
+    plt.legend(['Mental Health'] + related_words, loc='upper left')
+
+    # Set x-axis ticks to show month and year
+    x_ticks_labels = [date.strftime('%b %Y') for date in monthly_sum.index]
+    plt.xticks(x + bar_width/2, x_ticks_labels, rotation=45)
+
+
+
     plt.show()
 
 
