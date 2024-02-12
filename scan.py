@@ -1,6 +1,5 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.dates import MonthLocator, DateFormatter
 import consts as c
 import util as u
 
@@ -13,25 +12,36 @@ def save_articles_with_keywords():
     ENR = pd.read_csv(c.ENR_file)
     new_enr = pd.DataFrame(columns = ENR.columns)
 
-    keywords = u.get_keywords()    
+    keywords = u.get_keywords() 
+    related_words = ["suicide", "opioids", "overdose"]   
 
     columns = list(ENR.columns)
     columns = ["Title", "Title_URL", "Summary2", "Text"]
     columns.extend(keywords)
+    columns.extend(related_words)
 
     new_ls = []
 
     missed_articles = 0
+
+
 
     for i in range(ENR.shape[0]):
         include = False
         for kwrd in keywords:
             article = ENR.iloc[i].copy()
             try:
-                count = article["Text"].lower().count(kwrd.lower())
+                content = article["Text"].lower()
+
+                count = content.count(kwrd.lower())
                 if count > 0:
                     include = True
                     article[kwrd] = 1
+
+                    for related_word in related_words:
+                        related_count = content.count(related_word.lower())
+                        article[related_word] = related_count
+
             except Exception:
                 missed_articles += 1
                 print(f"Error reading on line {i}")
@@ -51,11 +61,11 @@ def visualize():
     ENR = pd.read_csv(c.Extracted_file, index_col="Date", parse_dates=True)
     ENR.index = pd.to_datetime(ENR.index)
 
-    monthly_sum = ENR["Mental Health"].resample('3M').sum()
+    monthly_sum = ENR["overdose"].resample('3M').sum()
     
+    plt.figure()
     
     ax = monthly_sum.plot(kind='bar', xlabel='Month', ylabel='Instances of keyword', title='Mental Health mentions in ENR articles')
-    print(ax.xaxis.get_major_formatter())
     
     plt.xticks(rotation=45, ha='right') 
     plt.show()
