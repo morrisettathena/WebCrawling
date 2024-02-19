@@ -28,8 +28,6 @@ def save_articles_with_keywords():
 
     missed_articles = 0
 
-
-
     for i in range(ENR.shape[0]):
         include = False
         for kwrd in keywords:
@@ -76,14 +74,16 @@ def visualize():
     bar_width = 0.9
     x = np.arange(len(monthly_sum))
 
-    plt.bar(x + bar_width, monthly_sum, width=bar_width/2, label='Mental Health', color='skyblue')
+    plt.bar(x, monthly_sum, width=bar_width/2, label='Mental Health', color='skyblue')
     
     # Plot monthly sums of related words
+    """
     for i in range(len(related_words_sums)):
         data = related_words_sums[i]
         z = (x + bar_width) - (i+1)/2*bar_width
 
         plt.bar(z, data, width = bar_width/2, label = related_words[i])
+    """
     """
     # Set x-axis major locator to yearly
     ax.xaxis.set_major_locator(mdates.MonthLocator())
