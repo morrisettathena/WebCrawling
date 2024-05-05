@@ -1,0 +1,85 @@
+const puppeteer = require("puppeteer");
+const MongoData = require('./mongodb');
+
+
+
+async function enrScrape() {
+
+  //Launch Browser and Page
+  const browser = await puppeteer.launch({ headless: false });
+  const page = await browser.newPage();
+
+  //article Data is the array of all articles
+  var articleData = [];
+
+
+  //user name and password 
+  var username = '';
+  var password = '';
+
+  //Go to ENR 
+  await page.goto("https://www.enr.com/articles/topic/75-news");
+
+  //Sign into ENR
+  await page.waitForSelector('.user-actions__signin-link');
+  const elementHandle = await page.$('.user-actions__signin-link');
+  await elementHandle.evaluate(element => element.click());
+  await page.waitForSelector('#id13.drg-field-address-normal');
+  await page.type('#id13.drg-field-address-normal', username);
+  await page.type('#id16', password);
+  await page.click('.submit');
+  await page.waitForTimeout(20000)
+
+  //Go to ENR News
+  await page.goto("https://www.enr.com/articles/topic/75-news?page=359");
+  while(true){
+    await page.waitForSelector(".records")
+    const pageData = await page.evaluate(() =>
+      Array.from(document.querySelectorAll(".record.article-summary"), (e) => ({
+        url: e.querySelector(".article-summary__headline a").href,
+        title: e.querySelector(".headline.article-summary__headline").textContent,
+        author: e.querySelector(".author-bylines__author-link-name")?.textContent ||
+          "Unknown Author",
+        date: e.querySelector(".date.article-summary__post-date").textContent,
+      }))
+    );
+  
+    articleData = articleData.concat(pageData); 
+    try {
+      await page.click(".pager .next_page");
+      // Wait for navigation to complete before evaluating the condition again
+    } catch (error) {
+      console.error("Error" + error);
+      // If there is an error clicking, assume we are on the last page
+      break;
+    }
+  }
+
+  const database = new MongoData();
+  await database.client.connect();
+
+  //Go to each article and extract text data
+  for(link in articleData){
+    try{
+      await page.goto(articleData[link].url);
+    const f = await page.$(".body.gsd-paywall.article-body");
+    const text = await (await f.getProperty("textContent")).jsonValue();
+    var cleanedText = text.replace(/\n\s+/g, ' ');
+    articleData[link].text = cleanedText;
+    await database.addData(articleData[link].url, articleData[link].title, articleData[link].author, articleData[link].date, articleData[link].text);
+    }catch(error){
+      console.log(error)
+    }
+    
+  }
+
+
+
+  await browser.close();
+  await database.client.close();
+  console.log("All Done");
+
+
+}
+
+enrScrape();
