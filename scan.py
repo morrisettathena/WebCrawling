@@ -7,20 +7,39 @@ import numpy as np
 
 #data = util.load_csv()
 
-related_words = ["suicide", "opioids", "overdose", "addiction","drug",
-"recovery",
-"pain",
-"treatment",
-"substance abuse",
-"prescription",
-"help",
-"stigma",
-"disorder"]   
+related_words = [
+    "Opioid",
+    "Addiction",
+    "Program",
+    "Drug",
+    "Recovery",
+    "Overdose",
+    "Pain",
+    "Treatment",
+    "Substance Abuse",
+    "Prescription",
+    "Gun",
+    "Help",
+    "Provide",
+    "Stigma",
+    "Disorder",
+    "Suicide",
+    "Suicide Prevention",
+    "Awareness",
+    "Compassion",
+    "Attempt",
+    "Depression",
+    "Drinking",
+    "Pandemic",
+    "Insurance",
+    "Counseling",
+    "Medical",
+    "Veteran",
+    "Hospital",
+    "Safety",
+    "Clinic"
+]
 
-related_words = []
-
-#related_words = ["opioids"]
-#related_words = []
 
 
 
