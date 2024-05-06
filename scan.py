@@ -1,13 +1,13 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 import consts as c
-import util as u
-import numpy as np
+import os
+import datetime as dt
 
 #data = util.load_csv()
 
-related_words = [
+keyword_list = [
+    "Mental Health",
     "Opioid",
     "Addiction",
     "Program",
@@ -40,10 +40,12 @@ related_words = [
     "Clinic"
 ]
 
+#keyword_list = ["Mental Health"]
 
 
 
-def save_articles_with_keywords():
+
+def save_articles_with_keywords(main_keyword):
     """
     From the ENRArticles file, find any articles that mention the mental health keywords specified in keywords.json.
     """
@@ -51,13 +53,11 @@ def save_articles_with_keywords():
     
     ENR = pd.read_csv(c.ENR_file)
 
-    keywords = u.get_keywords() 
-
 
     columns = list(ENR.columns)
     columns = ["Title", "Title_URL", "Summary2", "Text"]
-    columns.extend(keywords)
-    columns.extend(related_words)
+    columns.extend(keyword_list)
+    print(columns)
 
     print(columns)
 
@@ -67,23 +67,24 @@ def save_articles_with_keywords():
 
     for i in range(ENR.shape[0]):
         include = False
-        for kwrd in keywords:
-            article = ENR.iloc[i].copy()
-            try:
-                content = article["Text"].lower()
+        article = ENR.iloc[i].copy()
+        try:
+            content = article["Text"].lower()
 
-                count = content.count(kwrd.lower())
-                if count > 0:
-                    include = True
-                    article[kwrd] = 1
+            count = content.count(main_keyword.lower())
+            if count > 0:
+                include = True
+                article[main_keyword] = 1
 
-                    for related_word in related_words:
-                        related_count = content.count(related_word.lower())
-                        article[related_word] = related_count
+                for related_word in keyword_list:
+                    related_count = content.count(related_word.lower())
+                    if related_count > 0:
+                        related_count = 1
+                    article[related_word] = related_count
 
-            except Exception:
-                missed_articles += 1
-                #print(f"Error reading on line {i}")
+        except Exception:
+            missed_articles += 1
+            #print(f"Error reading on line {i}")
 
         if include:
             new_ls.append(article[columns])
@@ -97,13 +98,11 @@ def save_enr_processed_jsonl():
     
     dfile = pd.read_json("./enr-processed.jsonl", lines=True)
     print(dfile.head())
-    keywords = u.get_keywords() 
 
 
     columns = list(dfile.columns)
     columns = ["title", "text", "publish_date"]
-    columns.extend(keywords)
-    columns.extend(related_words)
+    columns.extend(keyword_list)
 
     new_ls = []
 
@@ -111,7 +110,7 @@ def save_enr_processed_jsonl():
 
     for i in range(dfile.shape[0]):
         include = False
-        for kwrd in keywords:
+        for kwrd in keyword_list:
             article = dfile.iloc[i].copy()
             try:
                 content = article["text"].lower()
@@ -121,7 +120,7 @@ def save_enr_processed_jsonl():
                     include = True
                     article[kwrd] = 1
 
-                    for related_word in related_words:
+                    for related_word in keyword_list:
                         related_count = content.count(related_word.lower())
                         if related_count > 0:
                             article[related_word] = 1
@@ -141,48 +140,98 @@ def save_enr_processed_jsonl():
     new_enr.to_csv("ExtractedArticlesENR-Processed.csv")
     print(f"Missed articles: {missed_articles}")
 
+def make_individual_graph(monthly_sum, keyword, savepath):
+    fig = plt.figure(figsize=(10, 6))
+    
+    monthly_sum.plot(label = keyword)
+
+    plt.xlabel("Time")
+    plt.ylabel(f"Instances of {keyword} in 3 month period")
+
+    plt.legend(loc='upper left')
+    plt.savefig(os.path.join(savepath, keyword))
+    plt.close(fig)
+    pass
+
+def visualize_top_n(monthly_sums: list[pd.Series], savepath: str, ENR: pd.DataFrame, n = 5):
+
+    df = pd.DataFrame(monthly_sums).T.sum()
+    topn = list(df.sort_values(ascending=False)[:n].keys())
+
+    monthly_sums_new = []
+
+    for item in topn:
+        monthly_sums_new.append(ENR[item].resample('3M').sum())
+
+    
+    cumulative = ENR[topn].sum(axis=1)
+    cumulative_sums = cumulative.resample("3M").sum()
+
+
+    fig = plt.figure(figsize=(10, 6))
+    cumulative_sums.plot(label = "cumulative", linestyle="--")
+    for i in range(n):
+        keyword = topn[i]
+        monthly_sums_new[i].plot(label = keyword)
+
+    
+    plt.xlabel("Time")
+    plt.ylabel(f"Instances of top {n} keywords in 3 month period")
+    plt.legend(loc="upper left")
+    plt.savefig(os.path.join(savepath, f"Top {n} words"))
+
+    plt.close(fig)
+
+def visualize_cumulative(ENR: pd.DataFrame, savepath: str):
+    fig = plt.figure(figsize=(10, 6))
+    ENR[keyword_list].sum(axis = 1).resample("3M").sum().plot(label = "3 month divides")
+    ENR[keyword_list].sum(axis = 1).rolling("90D").sum().plot(label = "Rolling sum over 90 days")
+    plt.xlabel("Time")
+    plt.ylabel(f"Cumulative instances of keywords in 3 month periods")
+    plt.legend(loc="upper left")
+    plt.savefig(os.path.join(savepath, f"Cumulative"))
+    plt.close(fig)
+    
 def visualize():
+
+    figures_path = os.path.join(os.getcwd(), "figures")
+
+    if not os.path.exists(figures_path):
+        os.mkdir(figures_path)
+
+    timestamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    current_figures = os.path.join(figures_path, timestamp)
+    os.mkdir(current_figures)
+    individual_figs = os.path.join(current_figures, "individual")
+    os.mkdir(individual_figs)
+
     """
     To be run after save_articles
     """
-    #ENR = pd.read_csv("ExtractedArticlesENR-Processed.csv", index_col="Date", parse_dates=True)
     ENR = pd.read_csv(c.Extracted_file, index_col="Date", parse_dates=True)
     ENR.index = pd.to_datetime(ENR.index)
 
-    monthly_sum = ENR["Mental Health"].resample('3M').sum()
-    related_words_sums = []
+    monthly_sums = []
 
-    for item in related_words:
-        related_words_sums.append(ENR[item].resample('3M').sum())
+    for item in keyword_list:
+        monthly_sums.append(ENR[item].resample('3M').sum())
 
-    #related_words_sums.append(monthly_sum)
-    plt.figure(figsize=(10, 6))
+    for i in range(len(monthly_sums)):
+        keyword = keyword_list[i]
+        data = monthly_sums[i]
+        make_individual_graph(data, keyword, individual_figs)
 
-    x = np.arange(len(monthly_sum))
+    for n in [3, 5, 7]:
+        visualize_top_n(
+            monthly_sums = monthly_sums, 
+            savepath=current_figures, 
+            ENR = ENR, 
+            n = n)
+    visualize_cumulative(ENR, current_figures)
 
-    #plt.bar(x, monthly_sum, width=bar_width/(len(related_words)*2), label='Mental Health', color='skyblue')
 
-    #plt.plot(monthly_sum.index, monthly_sum.values, label="Mental Health")
     
-    # Plot monthly sums of related words
-    monthly_sum.plot(label="Mental Health")
-    
-    for i in range(len(related_words_sums)):
-        data = related_words_sums[i]
-        data.plot(label=related_words[i])
-    """
-    # Set x-axis major locator to yearly
-    ax.xaxis.set_major_locator(mdates.MonthLocator())
-
-    # Set x-axis major formatter to display only year
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-    """
-    plt.xlabel("Month")
-    plt.ylabel("Instances of articles containing keyword")
-    plt.legend(loc='upper left')
-    plt.show()
 
 
-#save_enr_processed_jsonl()
-#save_articles_with_keywords()
+#save_articles_with_keywords("Mental Health")
 visualize()
